@@ -13,7 +13,8 @@ import InvoiceSettingsPanel from './components/InvoiceSettingsPanel';
 import ConfirmedPayments from './components/ConfirmedPayments';
 import { Influencer, Transaction, Delivery, Project, Task, InvoiceSettings } from './types';
 import { Shield, LogOut, Loader2, Database, BellRing, X } from 'lucide-react';
-import { INITIAL_INFLUENCERS, INITIAL_TRANSACTIONS, INITIAL_DELIVERIES } from './constants';
+import { db } from './lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   brandName: 'LOGO NAME',
@@ -46,44 +47,38 @@ const App: React.FC = () => {
   // Notification State
   const [activeNotifications, setActiveNotifications] = useState<Task[]>([]);
 
-  // Load Data from LocalStorage
+  // Load Data from Firestore
   useEffect(() => {
-    const storedUser = localStorage.getItem('creatorflow_user');
-    if (storedUser) setUser(JSON.parse(storedUser));
+    const fetchData = async () => {
+      const influencersCollection = await getDocs(collection(db, "influencers"));
+      setInfluencers(influencersCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Influencer[]);
 
-    const storedTheme = localStorage.getItem('cf_theme') as 'light' | 'dark';
-    if (storedTheme) setTheme(storedTheme);
+      const transactionsCollection = await getDocs(collection(db, "transactions"));
+      setTransactions(transactionsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Transaction[]);
 
-    const loadLocal = (key: string, initial: any) => {
-      const data = localStorage.getItem(key);
-      return data ? JSON.parse(data) : initial;
+      const deliveriesCollection = await getDocs(collection(db, "deliveries"));
+      setDeliveries(deliveriesCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Delivery[]);
+
+      const projectsCollection = await getDocs(collection(db, "projects"));
+      setProjects(projectsCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Project[]);
+
+      const tasksCollection = await getDocs(collection(db, "tasks"));
+      setTasks(tasksCollection.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[]);
+
+      const categoriesCollection = await getDocs(collection(db, "categories"));
+      setCategories(categoriesCollection.docs.map(doc => doc.data().name) as string[]);
+      
+      const invoiceSettingsCollection = await getDocs(collection(db, "invoiceSettings"));
+      if (invoiceSettingsCollection.docs.length > 0) {
+        setInvoiceSettings(invoiceSettingsCollection.docs[0].data() as InvoiceSettings);
+      }
+      
+      setLoading(false);
     };
 
-    setInfluencers(loadLocal('cf_influencers', INITIAL_INFLUENCERS));
-    setTransactions(loadLocal('cf_transactions', INITIAL_TRANSACTIONS));
-    setDeliveries(loadLocal('cf_deliveries', INITIAL_DELIVERIES));
-    setProjects(loadLocal('cf_projects', []));
-    setTasks(loadLocal('cf_tasks', []));
-    setCategories(loadLocal('cf_categories', ['Other', 'Production', 'Commission', 'Ad Spend', 'Gift', 'Software']));
-    setInvoiceSettings(loadLocal('cf_invoice_settings', DEFAULT_INVOICE_SETTINGS));
-
-    setLoading(false);
+    fetchData();
   }, []);
-
-  // Persistence Helpers
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem('cf_influencers', JSON.stringify(influencers));
-      localStorage.setItem('cf_transactions', JSON.stringify(transactions));
-      localStorage.setItem('cf_deliveries', JSON.stringify(deliveries));
-      localStorage.setItem('cf_projects', JSON.stringify(projects));
-      localStorage.setItem('cf_tasks', JSON.stringify(tasks));
-      localStorage.setItem('cf_categories', JSON.stringify(categories));
-      localStorage.setItem('cf_invoice_settings', JSON.stringify(invoiceSettings));
-      localStorage.setItem('cf_theme', theme);
-    }
-  }, [influencers, transactions, deliveries, projects, tasks, categories, invoiceSettings, theme, loading]);
-
+  
   // Reminder Notification Engine
   useEffect(() => {
     if (loading || !user) return;
@@ -249,7 +244,7 @@ const App: React.FC = () => {
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center space-x-2 text-[10px] font-black uppercase tracking-widest text-cyan-500">
               <Database size={10} />
-              <span>Local Storage Active</span>
+              <span>System is Active</span>
               <span className="text-slate-700 dark:text-slate-500 ml-2">SESSION: {user.email}</span>
             </div>
             <button 
@@ -269,7 +264,7 @@ const App: React.FC = () => {
                     <BellRing className="text-cyan-400 animate-bounce" size={18} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-[10px] font-black text-slate-500 dark:text-slate-50 uppercase tracking-widest mb-1">Task Reminder</h4>
+                    <h4 className="text-[10px] font-black text-slate-500 dark:text-slate-500 uppercase tracking-widest mb-1">Task Reminder</h4>
                     <p className="text-xs font-bold text-slate-900 dark:text-slate-100 truncate">{notification.title}</p>
                     <p className="text-[9px] text-slate-500 dark:text-slate-400 mt-1 uppercase font-bold">Due: {notification.dueDate}</p>
                   </div>
