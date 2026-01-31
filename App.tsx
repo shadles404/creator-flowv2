@@ -13,8 +13,9 @@ import InvoiceSettingsPanel from './components/InvoiceSettingsPanel';
 import ConfirmedPayments from './components/ConfirmedPayments';
 import { Influencer, Transaction, Delivery, Project, Task, InvoiceSettings } from './types';
 import { Shield, LogOut, Loader2, Database, BellRing, X } from 'lucide-react';
-import { db } from './lib/firebase';
-import { collection, getDocs } from 'firebase/firestore';
+import { db, auth } from './lib/firebase';
+import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 
 const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   brandName: 'LOGO NAME',
@@ -31,7 +32,7 @@ const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
 
 const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('dashboard');
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
 
@@ -46,6 +47,25 @@ const App: React.FC = () => {
   
   // Notification State
   const [activeNotifications, setActiveNotifications] = useState<Task[]>([]);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+
+  // Generic function to save data to Firestore
+  const saveData = async (collectionName: string, data: any[]) => {
+    const batch = writeBatch(db);
+    data.forEach(item => {
+      const docRef = doc(collection(db, collectionName), item.id);
+      batch.set(docRef, item);
+    });
+    await batch.commit();
+  };
 
   // Load Data from Firestore
   useEffect(() => {
@@ -75,9 +95,52 @@ const App: React.FC = () => {
       
       setLoading(false);
     };
+    if (user){
+      fetchData();
+    }
+  }, [user]);
 
-    fetchData();
-  }, []);
+  // Save data whenever it changes
+  useEffect(() => {
+    if (loading) return;
+    saveData("influencers", influencers);
+  }, [influencers, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+    saveData("transactions", transactions);
+  }, [transactions, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+    saveData("deliveries", deliveries);
+  }, [deliveries, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+    saveData("projects", projects);
+  }, [projects, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+    saveData("tasks", tasks);
+  }, [tasks, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+    // Categories are just strings, so we need to format them for saving
+    saveData("categories", categories.map(name => ({ name })));
+  }, [categories, loading]);
+
+  useEffect(() => {
+    if (loading) return;
+    // Invoice settings is a single object, not an array
+    const batch = writeBatch(db);
+    const docRef = doc(collection(db, "invoiceSettings"), "settings");
+    batch.set(docRef, invoiceSettings);
+    batch.commit();
+  }, [invoiceSettings, loading]);
+
   
   // Reminder Notification Engine
   useEffect(() => {
@@ -114,14 +177,13 @@ const App: React.FC = () => {
 
   const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
-  const handleLogout = () => {
-    localStorage.removeItem('creatorflow_user');
-    setUser(null);
-  };
-
-  const handleLogin = (userData: any) => {
-    localStorage.setItem('creatorflow_user', JSON.stringify(userData));
-    setUser(userData);
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      // user will be set to null by onAuthStateChanged
+    } catch (error) {
+      console.error("Error signing out: ", error);
+    }
   };
 
   const handleAddInfluencer = (inf: Influencer) => {
@@ -226,7 +288,7 @@ const App: React.FC = () => {
   if (!user) {
     return (
       <div className={theme === 'dark' ? 'dark' : ''}>
-        <Login onLogin={handleLogin} />
+        <Login />
       </div>
     );
   }

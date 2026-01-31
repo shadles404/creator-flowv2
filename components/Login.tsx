@@ -1,31 +1,39 @@
 
 import React, { useState } from 'react';
 import { Lock, Mail, AlertCircle, ShieldCheck } from 'lucide-react';
+import { auth } from '../lib/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
 
-interface LoginProps {
-  onLogin: (userData: any) => void;
-}
-
-const Login: React.FC<LoginProps> = ({ onLogin }) => {
+const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
 
-    // Simulated local login for portable demo
-    setTimeout(() => {
-      if (email && password) {
-        onLogin({ email, displayName: email.split('@')[0] });
-      } else {
-        setError('Please provide both terminal ID and security key.');
-        setLoading(false);
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      // onAuthStateChanged in App.tsx will handle the successful login
+    } catch (error: any) {
+      let errorMessage = "Failed to login. Please check your credentials.";
+      switch (error.code) {
+        case "auth/user-not-found":
+        case "auth/wrong-password":
+        case "auth/invalid-credential":
+          errorMessage = "Invalid terminal ID or security key.";
+          break;
+        case "auth/invalid-email":
+          errorMessage = "The provided terminal ID is not a valid format.";
+          break;
       }
-    }, 800);
+      setError(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
