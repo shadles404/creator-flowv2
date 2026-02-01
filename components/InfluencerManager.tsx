@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Plus, MoreVertical, ExternalLink, Activity, X, Phone, DollarSign, Target, Briefcase, Edit3, Trash2, User } from 'lucide-react';
+import { Plus, MoreVertical, ExternalLink, Activity, X, Phone, DollarSign, Target, Briefcase, Edit3, Trash2, User, Search, Download } from 'lucide-react';
 import { Influencer } from '../types';
 
 interface InfluencerManagerProps {
@@ -20,6 +20,7 @@ const InfluencerManager: React.FC<InfluencerManagerProps> = ({
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingInfluencer, setEditingInfluencer] = useState<Influencer | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     name: '',
     handle: '',
@@ -100,7 +101,6 @@ const InfluencerManager: React.FC<InfluencerManagerProps> = ({
       };
       onUpdateInfluencer(updatedInfluencer);
     } else {
-      // Fix: Added missing required paymentStatus property to satisfy the Influencer interface
       const newInfluencer: Influencer = {
         id: Math.random().toString(36).substr(2, 9),
         name: formData.name,
@@ -132,6 +132,47 @@ const InfluencerManager: React.FC<InfluencerManagerProps> = ({
     }
   };
 
+  const exportToCSV = () => {
+    const csvHeaders = ["ID", "Name", "Handle", "Followers", "Engagement Rate", "Avg Views", "Niche", "Status", "Phone", "Salary", "Contract Type", "Target Videos", "Completed Videos", "Ad Types", "Platform", "Notes", "Payment Status"];
+    const csvRows = [csvHeaders.join(",")];
+
+    filteredInfluencers.forEach(influencer => {
+      const row = [
+        influencer.id,
+        `"${influencer.name}"`,
+        `"${influencer.handle}"`,
+        influencer.followers,
+        influencer.engagementRate,
+        influencer.avgViews,
+        `"${influencer.niche}"`,
+        `"${influencer.status}"`,
+        `"${influencer.phone}"`,
+        influencer.salary,
+        `"${influencer.contractType}"`,
+        influencer.targetVideos,
+        influencer.completedVideos,
+        `"${influencer.adTypes.join(", ")}"`,
+        `"${influencer.platform}"`,
+        `"${influencer.notes}"`,
+        `"${influencer.paymentStatus}"`
+      ];
+      csvRows.push(row.join(","));
+    });
+
+    const csvString = csvRows.join("\n");
+    const blob = new Blob([csvString], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'influencers.csv';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const filteredInfluencers = influencers.filter(influencer =>
+    influencer.name.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -139,17 +180,37 @@ const InfluencerManager: React.FC<InfluencerManagerProps> = ({
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100">Influencer Network</h2>
           <p className="text-slate-500 dark:text-slate-400 text-sm">Managing {influencers.length} active partnerships</p>
         </div>
-        <button 
-          onClick={openAddModal}
-          className="flex items-center space-x-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-cyan-900/20"
-        >
-          <Plus size={18} />
-          <span>Add Influencer</span>
-        </button>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={exportToCSV}
+            className="flex items-center space-x-2 px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg text-sm font-medium border border-slate-200 dark:border-slate-700 transition-all"
+          >
+            <Download size={16} />
+            <span>Export CSV</span>
+          </button>
+          <button 
+            onClick={openAddModal}
+            className="flex items-center space-x-2 bg-gradient-to-r from-cyan-600 to-cyan-500 hover:from-cyan-500 hover:to-cyan-400 text-white px-4 py-2 rounded-lg font-medium transition-all shadow-lg shadow-cyan-900/20"
+          >
+            <Plus size={18} />
+            <span>Add Influencer</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <input
+          type="text"
+          placeholder="Search influencers..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full pl-10 pr-4 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-white dark:bg-slate-900 text-sm text-slate-900 dark:text-slate-200 placeholder-slate-400 dark:placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500"
+        />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {influencers.map((creator) => (
+        {filteredInfluencers.map((creator) => (
           <div key={creator.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden hover:border-cyan-500/50 dark:hover:border-slate-700 transition-all group shadow-sm dark:shadow-none">
             <div className="h-24 bg-gradient-to-r from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 relative">
                <div className="absolute top-4 right-4 flex space-x-2 opacity-0 group-hover:opacity-100 transition-opacity">
