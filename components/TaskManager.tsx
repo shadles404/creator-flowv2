@@ -21,9 +21,10 @@ import { Task } from '../types';
 interface TaskManagerProps {
   tasks: Task[];
   setTasks: React.Dispatch<React.SetStateAction<Task[]>>;
+  onDeleteTask: (id: string) => void;
 }
 
-const TaskManager: React.FC<TaskManagerProps> = ({ tasks, setTasks }) => {
+const TaskManager: React.FC<TaskManagerProps> = ({ tasks, setTasks, onDeleteTask }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -79,7 +80,7 @@ const TaskManager: React.FC<TaskManagerProps> = ({ tasks, setTasks }) => {
 
   const handleDelete = (id: string) => {
     if (confirm('Delete this operational task?')) {
-      setTasks(prev => prev.filter(t => t.id !== id));
+      onDeleteTask(id);
     }
   };
 

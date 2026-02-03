@@ -206,18 +206,32 @@ const App: React.FC = () => {
 
   const handleAddDelivery = (del: Delivery) => setDeliveries(prev => [...prev, del]);
   const handleUpdateDelivery = (updated: Delivery) => setDeliveries(prev => prev.map(d => d.id === updated.id ? updated : d));
-  const handleDeleteDelivery = (id: string) => setDeliveries(prev => prev.filter(d => d.id !== id));
+  const handleDeleteDelivery = async (id: string) => {
+    await deleteDoc(doc(db, "deliveries", id));
+    setDeliveries(prev => prev.filter(d => d.id !== id));
+  };
 
   const handleBulkUpdateDeliveries = async (ids: string[], updates: Partial<Delivery>) => {
     setDeliveries(prev => prev.map(d => ids.includes(d.id) ? { ...d, ...updates } : d));
   };
 
   const handleBulkDeleteDeliveries = async (ids: string[]) => {
+    const batch = writeBatch(db);
+    ids.forEach(id => {
+        const docRef = doc(db, "deliveries", id);
+        batch.delete(docRef);
+    });
+    await batch.commit();
     setDeliveries(prev => prev.filter(d => !ids.includes(d.id)));
   };
   const handleDeleteProject = async (id: string) => {
     await deleteDoc(doc(db, "projects", id));
     setProjects(prev => prev.filter(p => p.id !== id));
+  };
+
+    const handleDeleteTask = async (id: string) => {
+    await deleteDoc(doc(db, "tasks", id));
+    setTasks(prev => prev.filter(p => p.id !== id));
   };
 
   const renderContent = () => {
@@ -274,7 +288,7 @@ const App: React.FC = () => {
           />
         );
       case 'tasks':
-        return <TaskManager tasks={tasks} setTasks={setTasks} />;
+        return <TaskManager tasks={tasks} setTasks={setTasks} onDeleteTask={handleDeleteTask} />;
       case 'reports':
         return <Reports influencers={influencers} deliveries={deliveries} projects={projects} transactions={transactions} tasks={tasks} />;
       case 'invoice-settings':
