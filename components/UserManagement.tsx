@@ -1,5 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
+import { collection, getDocs, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 import { UserProfile, UserRole } from '../types';
 import { Shield, UserPlus, Trash2, Mail, X } from 'lucide-react';
 
@@ -14,51 +16,35 @@ const UserManagement: React.FC = () => {
     role: 'staff' as UserRole
   });
 
-  // Use local storage for user metadata
   useEffect(() => {
-    const loadUsers = () => {
+    const loadUsers = async () => {
       setLoading(true);
-      const stored = localStorage.getItem('cf_system_users');
-      if (stored) {
-        setUsers(JSON.parse(stored));
-      } else {
-        // Initial seed data if empty
-        const initial: UserProfile[] = [
-          {
-            uid: '1',
-            email: 'admin@creatorflow.com',
-            displayName: 'System Admin',
-            role: 'admin',
-            createdAt: new Date().toISOString()
-          }
-        ];
-        setUsers(initial);
-        localStorage.setItem('cf_system_users', JSON.stringify(initial));
+      try {
+        const querySnapshot = await getDocs(collection(db, "users"));
+        const usersData = querySnapshot.docs.map(doc => ({ ...doc.data(), uid: doc.id })) as UserProfile[];
+        setUsers(usersData);
+      } catch (error) {
+        console.error("Error loading users:", error);
       }
       setLoading(false);
     };
 
-    // Simulate network delay for a consistent user experience
-    const timer = setTimeout(loadUsers, 800);
-    return () => clearTimeout(timer);
+    loadUsers();
   }, []);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const userId = Math.random().toString(36).substr(2, 9);
-      const newUser: UserProfile = {
-        uid: userId,
+      const newUser: Omit<UserProfile, 'uid' | 'createdAt'> = {
         email: formData.email,
         displayName: formData.displayName,
         role: formData.role,
-        createdAt: new Date().toISOString()
       };
-      
-      const updatedUsers = [newUser, ...users];
-      setUsers(updatedUsers);
-      localStorage.setItem('cf_system_users', JSON.stringify(updatedUsers));
-      
+      const docRef = await addDoc(collection(db, "users"), {
+        ...newUser,
+        createdAt: new Date().toISOString()
+      });
+      setUsers([...users, { ...newUser, uid: docRef.id, createdAt: new Date().toISOString() }]);
       setIsModalOpen(false);
       setFormData({ email: '', displayName: '', role: 'staff' });
     } catch (err) {
@@ -66,11 +52,14 @@ const UserManagement: React.FC = () => {
     }
   };
 
-  const handleDeleteUser = async (email: string) => {
+  const handleDeleteUser = async (userId: string, email: string) => {
     if (confirm(`Revoke access for ${email}?`)) {
-      const updatedUsers = users.filter(u => u.email !== email);
-      setUsers(updatedUsers);
-      localStorage.setItem('cf_system_users', JSON.stringify(updatedUsers));
+      try {
+        await deleteDoc(doc(db, "users", userId));
+        setUsers(users.filter(u => u.uid !== userId));
+      } catch (error) {
+        console.error("Error deleting user:", error);
+      }
     }
   };
 
@@ -131,7 +120,7 @@ const UserManagement: React.FC = () => {
                 </td>
                 <td className="px-8 py-6 text-right">
                   <button 
-                    onClick={() => handleDeleteUser(user.email)}
+                    onClick={() => handleDeleteUser(user.uid, user.email)}
                     className="p-2 text-slate-300 hover:text-rose-500 transition-all opacity-0 group-hover:opacity-100 transition-colors"
                   >
                     <Trash2 size={16} />

@@ -14,7 +14,7 @@ import ConfirmedPayments from './components/ConfirmedPayments';
 import { Influencer, Transaction, Delivery, Project, Task, InvoiceSettings } from './types';
 import { Shield, LogOut, Loader2, Database, BellRing, X } from 'lucide-react';
 import { db, auth } from './lib/firebase';
-import { collection, getDocs, writeBatch, doc } from 'firebase/firestore';
+import { collection, getDocs, writeBatch, doc, deleteDoc } from 'firebase/firestore';
 import { onAuthStateChanged, signOut, User } from 'firebase/auth';
 
 const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
@@ -194,7 +194,10 @@ const App: React.FC = () => {
     setInfluencers(prev => [...prev, influencerWithPayment]);
   };
   const handleUpdateInfluencer = (updated: Influencer) => setInfluencers(prev => prev.map(i => i.id === updated.id ? updated : i));
-  const handleDeleteInfluencer = (id: string) => setInfluencers(prev => prev.filter(i => i.id !== id));
+  const handleDeleteInfluencer = async (id: string) => {
+    await deleteDoc(doc(db, "influencers", id));
+    setInfluencers(prev => prev.filter(i => i.id !== id))
+  };
   const handleResetAllInfluencers = () => {
     if (confirm('Are you sure you want to reset completion progress for ALL influencers?')) {
       setInfluencers(prev => prev.map(inf => ({ ...inf, completedVideos: 0 })));
@@ -211,6 +214,10 @@ const App: React.FC = () => {
 
   const handleBulkDeleteDeliveries = async (ids: string[]) => {
     setDeliveries(prev => prev.filter(d => !ids.includes(d.id)));
+  };
+  const handleDeleteProject = async (id: string) => {
+    await deleteDoc(doc(db, "projects", id));
+    setProjects(prev => prev.filter(p => p.id !== id));
   };
 
   const renderContent = () => {
@@ -263,6 +270,7 @@ const App: React.FC = () => {
             setCategories={setCategories} 
             invoiceSettings={invoiceSettings}
             setInvoiceSettings={setInvoiceSettings}
+            onDeleteProject={handleDeleteProject}
           />
         );
       case 'tasks':
